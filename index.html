@@ -1,0 +1,1994 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YMCA Recomp & Strength Tracker</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <!-- Tone.js for Rest Timer Alert -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            slate: {
+              850: '#151e2e',
+              925: '#0c121e',
+              950: '#070b14',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbar & subtle utility refinements */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.3); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.5); }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] { -moz-appearance: textfield; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 font-sans antialiased min-h-screen transition-colors duration-200 selection:bg-emerald-500 selection:text-white">
+
+  <!-- Toast Notification Banner (No alert() used) -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-full px-4 sm:px-0"></div>
+
+  <!-- Confirmation Modal (No confirm() used) -->
+  <div id="confirm-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+      <h3 id="confirm-title" class="text-lg font-bold text-slate-900 dark:text-white mb-2">Confirm Action</h3>
+      <p id="confirm-message" class="text-sm text-slate-600 dark:text-slate-300 mb-6">Are you sure?</p>
+      <div class="flex justify-end gap-3">
+        <button id="confirm-cancel" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition">Cancel</button>
+        <button id="confirm-ok" class="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-600 hover:bg-rose-500 text-white transition">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-40 bg-white/90 dark:bg-slate-925/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16 gap-3">
+        <!-- Brand / Title -->
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-extrabold shadow-lg shadow-emerald-500/20 shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 10h2m14 0h2M5 7v6m14-6v6M7 10h10M9 6v8m6-8v8" />
+            </svg>
+          </div>
+          <div class="truncate">
+            <h1 class="text-base sm:text-lg font-extrabold tracking-tight truncate">YMCA Recomp Tracker</h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">300 → 220 lbs • 4-Day Upper/Lower Split</p>
+          </div>
+        </div>
+
+        <!-- Global Rest Timer Pill -->
+        <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-2xl px-3 py-1.5">
+          <div class="flex items-center gap-1.5">
+            <span id="timer-dot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+            <span id="timer-display" class="font-mono text-sm sm:text-base font-bold tabular-nums text-slate-800 dark:text-emerald-400">01:30</span>
+          </div>
+          <div class="hidden md:flex items-center gap-1 border-l border-slate-300 dark:border-slate-700 pl-2">
+            <button onclick="setTimerPreset(60)" class="px-2 py-0.5 text-xs font-semibold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition">60s</button>
+            <button onclick="setTimerPreset(90)" class="px-2 py-0.5 text-xs font-semibold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition">90s</button>
+            <button onclick="setTimerPreset(120)" class="px-2 py-0.5 text-xs font-semibold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition">2m</button>
+            <button onclick="setTimerPreset(180)" class="px-2 py-0.5 text-xs font-semibold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition">3m</button>
+          </div>
+          <button id="timer-toggle-btn" onclick="toggleTimer()" class="px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition">Start</button>
+          <button onclick="resetTimer()" title="Reset Timer" class="p-1 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+          </button>
+        </div>
+
+        <!-- Right Controls: Backup & Theme Toggle -->
+        <div class="flex items-center gap-1.5 sm:gap-2">
+          <button onclick="exportData()" title="Export JSON Backup" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+          </button>
+          <label title="Import JSON Backup" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+            <input type="file" id="import-file" accept=".json" class="hidden" onchange="importData(event)" />
+          </label>
+          <button id="theme-toggle" onclick="toggleTheme()" title="Toggle Light/Dark Theme" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 transition">
+            <!-- Sun Icon (shown in dark mode) -->
+            <svg id="icon-sun" class="w-4 h-4 hidden dark:block text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+            <!-- Moon Icon (shown in light mode) -->
+            <svg id="icon-moon" class="w-4 h-4 block dark:hidden text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Mobile Timer Quick Presets Bar -->
+      <div class="flex md:hidden items-center justify-between pb-2.5 pt-1 border-t border-slate-200/60 dark:border-slate-800/60 text-xs">
+        <span class="text-slate-500 dark:text-slate-400 font-medium">Rest Presets:</span>
+        <div class="flex items-center gap-1.5">
+          <button onclick="setTimerPreset(60)" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-850 font-semibold">60s</button>
+          <button onclick="setTimerPreset(90)" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-850 font-semibold">90s</button>
+          <button onclick="setTimerPreset(120)" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-850 font-semibold">2m</button>
+          <button onclick="setTimerPreset(180)" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-850 font-semibold">3m</button>
+          <button onclick="openCustomTimerModal()" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-850 font-semibold text-emerald-500">Custom</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Navigation Tabs -->
+  <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+    <div class="grid grid-cols-3 gap-2 p-1.5 bg-slate-200/70 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+      <button onclick="switchMainTab('workout')" id="tab-btn-workout" class="main-tab-btn flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+        <span>Workout Log</span>
+      </button>
+      <button onclick="switchMainTab('weight')" id="tab-btn-weight" class="main-tab-btn flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" /></svg>
+        <span>Weigh-Ins & Recomp</span>
+      </button>
+      <button onclick="switchMainTab('analytics')" id="tab-btn-analytics" class="main-tab-btn flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+        <span>Strength PRs & Tools</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Content Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20">
+
+    <!-- =================================================================== -->
+    <!-- TAB 1: WORKOUT LOGGER & HISTORY                                     -->
+    <!-- =================================================================== -->
+    <section id="tab-workout" class="space-y-6">
+      <!-- Split Selector & Session Header -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+          <div>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 mb-1.5">
+              4-Day YMCA Split • Double Progression
+            </span>
+            <h2 id="active-split-title" class="text-xl sm:text-2xl font-extrabold tracking-tight">Upper A — Horizontal Strength Focus</h2>
+            <p id="active-split-desc" class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">Heavy pressing & rowing • Optional 20-min easy swim after lifting</p>
+          </div>
+
+          <!-- Split Pills -->
+          <div class="flex flex-wrap gap-2">
+            <button onclick="selectSplit('upperA')" data-split="upperA" class="split-pill px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition bg-emerald-600 text-white shadow-sm">Upper A</button>
+            <button onclick="selectSplit('lowerA')" data-split="lowerA" class="split-pill px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800">Lower A</button>
+            <button onclick="selectSplit('upperB')" data-split="upperB" class="split-pill px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800">Upper B</button>
+            <button onclick="selectSplit('lowerB')" data-split="lowerB" class="split-pill px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800">Lower B</button>
+            <button onclick="selectSplit('custom')" data-split="custom" class="split-pill px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800">+ Custom</button>
+          </div>
+        </div>
+
+        <!-- Session Metadata Bar -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Workout Date</label>
+            <input type="date" id="workout-date" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Post-Lift Swim (Optional)</label>
+            <select id="workout-swim" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <option value="None">No Swim Today</option>
+              <option value="15 min Easy Swim">15 min Easy Swim</option>
+              <option value="20 min Moderate Swim">20 min Moderate Swim</option>
+              <option value="25 min Lap Conditioning">25 min Lap Conditioning</option>
+              <option value="30 min Pool Recovery">30 min Pool Recovery</option>
+            </select>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Session Notes (Energy, Sleep, Straps used, etc.)</label>
+            <input type="text" id="workout-notes" placeholder="e.g., Felt strong on bench, used straps on last set of rows..." class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+        </div>
+
+        <!-- Live Session Summary Strip -->
+        <div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-4 text-xs sm:text-sm">
+            <div><span class="text-slate-500 dark:text-slate-400">Completed Sets:</span> <strong id="live-sets-count" class="font-mono text-emerald-500">0 / 0</strong></div>
+            <div><span class="text-slate-500 dark:text-slate-400">Total Volume:</span> <strong id="live-volume-count" class="font-mono">0 lbs</strong></div>
+            <div><span class="text-slate-500 dark:text-slate-400">Progression Ready:</span> <strong id="live-ready-count" class="font-mono text-amber-500">0</strong></div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="resetActiveTemplate()" class="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition">
+              Reset Template
+            </button>
+            <button onclick="saveCompletedWorkout()" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 transition flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7" /></svg>
+              Save Workout to Log
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Exercise Cards Container -->
+      <div id="exercises-container" class="space-y-4"></div>
+
+      <!-- Add Exercise Button -->
+      <div class="flex justify-center">
+        <button onclick="openAddExerciseModal()" class="w-full sm:w-auto px-5 py-3 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 text-sm font-bold text-slate-600 dark:text-slate-300 hover:text-emerald-500 transition flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+          Add Exercise to Session
+        </button>
+      </div>
+
+      <!-- Searchable Workout History -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm mt-8">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 class="text-lg font-extrabold">Completed Workout History</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Your logged sessions automatically feed "Last Time" hints and Strength PRs.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" id="history-search" oninput="renderWorkoutHistory()" placeholder="Search split, exercise, notes..." class="w-full sm:w-64 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+        </div>
+        <div id="workout-history-list" class="space-y-3"></div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 2: WEEKLY WEIGH-INS & BODY RECOMP TRACKER                       -->
+    <!-- =================================================================== -->
+    <section id="tab-weight" class="hidden space-y-6">
+      <!-- KPI Summary Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5">
+          <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Current Weight</p>
+          <p id="kpi-current-weight" class="text-2xl sm:text-3xl font-extrabold font-mono mt-1 text-slate-900 dark:text-white">300.0 lbs</p>
+          <p id="kpi-start-compare" class="text-xs text-slate-500 dark:text-slate-400 mt-1">Start: 300.0 lbs</p>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5">
+          <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Lost</p>
+          <p id="kpi-total-lost" class="text-2xl sm:text-3xl font-extrabold font-mono mt-1 text-emerald-500">0.0 lbs</p>
+          <p id="kpi-percent-goal" class="text-xs text-slate-500 dark:text-slate-400 mt-1">0% of 80 lb goal</p>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5">
+          <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Weekly Avg Rate</p>
+          <p id="kpi-weekly-rate" class="text-2xl sm:text-3xl font-extrabold font-mono mt-1 text-sky-500">— lbs/wk</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Target: 1.5–2.0 lbs/wk</p>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5">
+          <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Next Checkpoint</p>
+          <p id="kpi-next-milestone" class="text-2xl sm:text-3xl font-extrabold font-mono mt-1 text-amber-500">280.0 lbs</p>
+          <p id="kpi-to-milestone" class="text-xs text-slate-500 dark:text-slate-400 mt-1">20.0 lbs to go</p>
+        </div>
+      </div>
+
+      <!-- 300 -> 220 lbs Progress Bar & 20-lb Milestone Badges -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+          <div>
+            <h3 class="text-base sm:text-lg font-extrabold">Road to 220 lbs (20-lb Checkpoints)</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Starting at 300 lbs (~32–35% BF) → Target 220 lbs (~12–15% BF)</p>
+          </div>
+          <span id="projected-eta-badge" class="inline-flex items-center px-3 py-1 rounded-xl text-xs font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400">
+            ETA at 1.75 lbs/wk: ~46 weeks
+          </span>
+        </div>
+
+        <!-- Progress Track -->
+        <div class="relative w-full h-4 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden my-4">
+          <div id="weight-progress-fill" class="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+
+        <!-- Milestone Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mt-4">
+          <div id="ms-300" class="p-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-center">
+            <span class="text-[11px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Baseline</span>
+            <p class="font-mono font-extrabold text-base">300 lbs</p>
+            <span class="text-[11px] text-slate-500 dark:text-slate-400">Starting Point</span>
+          </div>
+          <div id="ms-280" class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 text-center">
+            <span class="text-[11px] font-bold uppercase text-slate-400">Checkpoint 1</span>
+            <p class="font-mono font-extrabold text-base">280 lbs</p>
+            <span class="text-[11px] text-slate-500 dark:text-slate-400">-20 lbs</span>
+          </div>
+          <div id="ms-260" class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 text-center">
+            <span class="text-[11px] font-bold uppercase text-slate-400">Checkpoint 2</span>
+            <p class="font-mono font-extrabold text-base">260 lbs</p>
+            <span class="text-[11px] text-slate-500 dark:text-slate-400">-40 lbs</span>
+          </div>
+          <div id="ms-240" class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 text-center">
+            <span class="text-[11px] font-bold uppercase text-slate-400">Checkpoint 3</span>
+            <p class="font-mono font-extrabold text-base">240 lbs</p>
+            <span class="text-[11px] text-slate-500 dark:text-slate-400">-60 lbs</span>
+          </div>
+          <div id="ms-220" class="col-span-2 sm:col-span-1 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 text-center">
+            <span class="text-[11px] font-bold uppercase text-amber-500">Goal Weight</span>
+            <p class="font-mono font-extrabold text-base">220 lbs</p>
+            <span class="text-[11px] text-slate-500 dark:text-slate-400">-80 lbs</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weight Trend Chart + Log Form Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Log Weekly Weigh-In Form -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm">
+          <h3 class="text-lg font-extrabold mb-1">Log Weekly Weigh-In</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Weigh in first thing in the morning after using the bathroom for consistent tracking.</p>
+
+          <form id="weighin-form" onsubmit="addWeighIn(event)" class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Date</label>
+                <input type="date" id="wi-date" required class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Weight (lbs) *</label>
+                <input type="number" step="0.1" min="100" max="600" id="wi-weight" required placeholder="297.5" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+            </div>
+
+            <div class="pt-1">
+              <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Optional Body Recomp Measurements</p>
+              <div class="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label class="block text-[11px] text-slate-500 mb-0.5">Waist (in)</label>
+                  <input type="number" step="0.1" id="wi-waist" placeholder="e.g. 44.0" class="w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <div>
+                  <label class="block text-[11px] text-slate-500 mb-0.5">Chest (in)</label>
+                  <input type="number" step="0.1" id="wi-chest" placeholder="e.g. 48.5" class="w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <div>
+                  <label class="block text-[11px] text-slate-500 mb-0.5">Arms (in)</label>
+                  <input type="number" step="0.1" id="wi-arms" placeholder="e.g. 16.5" class="w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <div>
+                  <label class="block text-[11px] text-slate-500 mb-0.5">Grip / Forearm (in or lbs)</label>
+                  <input type="text" id="wi-grip" placeholder="e.g. 14.0 in" class="w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Notes</label>
+              <input type="text" id="wi-notes" placeholder="e.g., Hit 2,500 kcal daily, 3 swims this week" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            </div>
+
+            <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/20 transition">
+              Record Weigh-In
+            </button>
+          </form>
+        </div>
+
+        <!-- Interactive SVG Line Chart -->
+        <div class="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div>
+              <h3 class="text-lg font-extrabold">Weight Trend & 4-Week Moving Average</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Includes projected 1.5–2.0 lbs/wk fat loss trajectory</p>
+            </div>
+            <div class="flex items-center gap-4 text-xs">
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-emerald-500 inline-block"></span> Scale Weight</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-sky-400 inline-block"></span> 4-Wk Avg</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 border-t-2 border-dashed border-amber-400 inline-block"></span> Target Pace</span>
+            </div>
+          </div>
+
+          <div id="weight-chart-wrapper" class="relative w-full flex-1 min-h-[260px]">
+            <svg id="weight-svg-chart" class="w-full h-full overflow-visible"></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weigh-In History Table -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm">
+        <h3 class="text-lg font-extrabold mb-3">Weigh-In Log History</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs sm:text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
+                <th class="py-2.5 px-3 font-semibold">Date</th>
+                <th class="py-2.5 px-3 font-semibold">Weight</th>
+                <th class="py-2.5 px-3 font-semibold">Change</th>
+                <th class="py-2.5 px-3 font-semibold">Waist / Chest / Arms</th>
+                <th class="py-2.5 px-3 font-semibold">Notes</th>
+                <th class="py-2.5 px-3 font-semibold text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="weighin-table-body" class="divide-y divide-slate-100 dark:divide-slate-800/70"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 3: STRENGTH ANALYTICS, PRs & PLATE CALCULATOR                   -->
+    <!-- =================================================================== -->
+    <section id="tab-analytics" class="hidden space-y-6">
+      <!-- Top Row: Strength Progression Chart + Plate Calculator -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Lift Progression Chart -->
+        <div class="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h3 class="text-lg font-extrabold">Lift Strength & Estimated 1RM Progression</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Epley Formula: Weight × (1 + Reps / 30)</p>
+            </div>
+            <select id="analytics-lift-select" onchange="renderStrengthChart()" class="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <option value="Barbell / DB Flat Bench Press">Bench Press</option>
+              <option value="45° Sled Leg Press">45° Sled Leg Press</option>
+              <option value="Trap Bar Deadlift / Barbell RDL">Trap Bar Deadlift / RDL</option>
+              <option value="Seated DB Overhead Press">Seated DB Overhead Press</option>
+              <option value="Wide-Grip Lat Pulldown">Wide-Grip Lat Pulldown</option>
+              <option value="Goblet / Hack / Back Squat">Squat (Goblet/Hack/Back)</option>
+            </select>
+          </div>
+          <div class="relative w-full flex-1 min-h-[250px]">
+            <svg id="strength-svg-chart" class="w-full h-full overflow-visible"></svg>
+          </div>
+        </div>
+
+        <!-- Barbell / Sled Plate Calculator -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm">
+          <h3 class="text-lg font-extrabold mb-1">Barbell & Sled Plate Calculator</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Calculate exact plates per side for standard barbells, trap bars, or 45° leg press sleds.</p>
+
+          <div class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Target Weight (lbs)</label>
+                <input type="number" step="5" id="plate-target" value="225" oninput="calculatePlates()" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Bar / Sled Start Weight</label>
+                <select id="plate-bar-weight" onchange="calculatePlates()" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                  <option value="45">45 lb Olympic Bar</option>
+                  <option value="55">55 lb Trap / Hex Bar</option>
+                  <option value="25">25 lb EZ-Curl Bar</option>
+                  <option value="118">118 lb Leg Press Sled</option>
+                  <option value="0">0 lb (Plates Only)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Quick Jump Buttons -->
+            <div class="flex flex-wrap gap-1.5">
+              <button onclick="setPlateTarget(135)" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-850 text-xs font-mono font-bold hover:bg-emerald-500/20">135</button>
+              <button onclick="setPlateTarget(185)" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-850 text-xs font-mono font-bold hover:bg-emerald-500/20">185</button>
+              <button onclick="setPlateTarget(225)" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-850 text-xs font-mono font-bold hover:bg-emerald-500/20">225</button>
+              <button onclick="setPlateTarget(315)" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-850 text-xs font-mono font-bold hover:bg-emerald-500/20">315</button>
+              <button onclick="setPlateTarget(405)" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-850 text-xs font-mono font-bold hover:bg-emerald-500/20">405</button>
+              <button onclick="setPlateTarget(800)" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-850 text-xs font-mono font-bold hover:bg-emerald-500/20">800</button>
+            </div>
+
+            <!-- Visual Plate Stack -->
+            <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800">
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Load Per Side:</p>
+              <div id="plate-visual-bar" class="flex items-center gap-1 min-h-[68px] overflow-x-auto py-1"></div>
+              <p id="plate-text-breakdown" class="text-xs font-mono font-semibold text-emerald-600 dark:text-emerald-400 mt-2"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Personal Records (PR) Board -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <div>
+            <h3 class="text-lg font-extrabold">Personal Records (PR) Board</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Automatically calculated across all logged sets (Heaviest Weight, Best Set Volume, Est. 1RM).</p>
+          </div>
+        </div>
+        <div id="pr-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Add Exercise Modal -->
+  <div id="add-exercise-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+      <h3 class="text-lg font-extrabold mb-1">Add Exercise</h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Add a new movement to your current session.</p>
+      <form onsubmit="confirmAddExercise(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Exercise Name *</label>
+          <input type="text" id="new-ex-name" required placeholder="e.g., Cable Crossover or Preacher Curl" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+        </div>
+        <div class="grid grid-cols-3 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Sets</label>
+            <input type="number" id="new-ex-sets" value="3" min="1" max="10" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-sm font-mono" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Min Reps</label>
+            <input type="number" id="new-ex-min" value="8" min="1" max="100" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-sm font-mono" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Max Reps</label>
+            <input type="number" id="new-ex-max" value="12" min="1" max="100" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-sm font-mono" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Coaching Cue / Notes</label>
+          <input type="text" id="new-ex-cue" placeholder="Control eccentric for 2 seconds..." class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-sm" />
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeAddExerciseModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white">Add Exercise</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Custom Timer Modal -->
+  <div id="custom-timer-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-xs w-full p-5 shadow-2xl">
+      <h3 class="text-base font-extrabold mb-3">Set Custom Rest Timer</h3>
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Minutes</label>
+          <input type="number" id="custom-timer-min" value="2" min="0" max="30" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 font-mono font-bold" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Seconds</label>
+          <input type="number" id="custom-timer-sec" value="30" min="0" max="59" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 font-mono font-bold" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2">
+        <button onclick="closeCustomTimerModal()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800">Cancel</button>
+        <button onclick="applyCustomTimer()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white">Set & Start</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. DEFAULT TEMPLATES & INITIAL STATE
+    // =========================================================================
+    const STORAGE_KEY = 'ymca_recomp_tracker_v1';
+
+    const DEFAULT_SPLITS = {
+      upperA: {
+        id: 'upperA',
+        name: 'Upper A — Horizontal Strength Focus',
+        desc: 'Heavy pressing & rowing • 2–3 min rest on main lifts • Optional 20-min easy swim after',
+        exercises: [
+          {
+            name: 'Barbell / DB Flat Bench Press',
+            minReps: 6, maxReps: 8, unit: 'reps',
+            cue: 'Keep shoulder blades pinched back; lower under control to mid-chest.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Chest-Supported Machine Row',
+            minReps: 6, maxReps: 8, unit: 'reps',
+            cue: 'Chest support protects lower back; pull elbows past torso.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Incline Dumbbell Press',
+            minReps: 8, maxReps: 10, unit: 'reps',
+            cue: 'Set bench to 30° to bias upper chest without overloading front delts.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Wide-Grip Lat Pulldown',
+            minReps: 10, maxReps: 12, unit: 'reps',
+            cue: 'Pull bar to upper chest; let shoulders stretch fully at the top.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Cable Rope Face Pulls',
+            minReps: 12, maxReps: 15, unit: 'reps',
+            cue: 'Pull rope toward forehead while rotating thumbs backward for shoulder health.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'EZ-Bar Curls (Superset)',
+            minReps: 10, maxReps: 12, unit: 'reps',
+            cue: 'Superset with Cable Tricep Pushdowns; keep elbows pinned to ribs.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Cable Tricep Pushdowns (Superset)',
+            minReps: 10, maxReps: 12, unit: 'reps',
+            cue: 'Lock elbows at sides and spread rope/bar at full extension.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          }
+        ]
+      },
+      lowerA: {
+        id: 'lowerA',
+        name: 'Lower A — Quad & Squat Focus',
+        desc: 'Pairs your strong leg press base with controlled squat depth & unilateral work',
+        exercises: [
+          {
+            name: 'Goblet / Hack / Back Squat',
+            minReps: 6, maxReps: 8, unit: 'reps',
+            cue: 'Brace core hard; groove full controlled depth before pushing max loads.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: '45° Sled Leg Press',
+            minReps: 8, maxReps: 10, unit: 'reps',
+            cue: 'Feet slightly lower on sled to bias quads; 2s descent, do not lock knees.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'DB Bulgarian Split Squat',
+            minReps: 8, maxReps: 10, unit: 'reps/leg',
+            cue: 'Hold rack lightly for balance if needed; fixes left/right strength gaps.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Seated / Lying Leg Curl',
+            minReps: 10, maxReps: 12, unit: 'reps',
+            cue: 'Pause 1 second at peak contraction; control the return.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Standing Calf Raise',
+            minReps: 10, maxReps: 15, unit: 'reps',
+            cue: 'Pause 2 seconds in full bottom stretch on every single rep.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Plank / Cable Crunch',
+            minReps: 30, maxReps: 45, unit: 'sec/reps',
+            cue: 'Brace abs like taking a punch; avoid lower back sag.',
+            sets: [
+              { weight: '0', reps: '', rpe: '', done: false },
+              { weight: '0', reps: '', rpe: '', done: false },
+              { weight: '0', reps: '', rpe: '', done: false }
+            ]
+          }
+        ]
+      },
+      upperB: {
+        id: 'upperB',
+        name: 'Upper B — Vertical & Hypertrophy Focus',
+        desc: 'Higher rep ranges for muscle growth & metabolic conditioning • Optional 20-min swim',
+        exercises: [
+          {
+            name: 'Seated DB Overhead Press',
+            minReps: 8, maxReps: 10, unit: 'reps',
+            cue: 'Keep elbows tucked ~30° forward rather than flared straight out.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Neutral-Grip Lat Pulldown',
+            minReps: 8, maxReps: 10, unit: 'reps',
+            cue: 'Palms facing each other; drive elbows down toward your hips.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Flat Dumbbell Flyes / Pec Deck',
+            minReps: 12, maxReps: 15, unit: 'reps',
+            cue: 'Deep chest stretch at the bottom; stop just before weights touch at top.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Single-Arm Dumbbell Row',
+            minReps: 10, maxReps: 12, unit: 'reps/arm',
+            cue: 'Brace one hand on bench; pull dumbbell toward hip pocket.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Dumbbell Lateral Raises',
+            minReps: 12, maxReps: 15, unit: 'reps',
+            cue: 'Lead with elbows to shoulder height; strict form over heavy swinging.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'DB Hammer Curls (Superset)',
+            minReps: 10, maxReps: 12, unit: 'reps',
+            cue: 'Hits biceps & brachioradialis—direct carryover to grip strength.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Overhead Cable Tricep Extension (Superset)',
+            minReps: 10, maxReps: 12, unit: 'reps',
+            cue: 'Full stretch behind head targets the long head of the tricep.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          }
+        ]
+      },
+      lowerB: {
+        id: 'lowerB',
+        name: 'Lower B — Posterior Chain & Hinge Focus',
+        desc: 'Hamstrings, glutes, lower back, and heavy grip/core conditioning',
+        exercises: [
+          {
+            name: 'Trap Bar Deadlift / Barbell RDL',
+            minReps: 6, maxReps: 8, unit: 'reps',
+            cue: 'Use YMCA hex/trap bar if available; keep chest proud and lats tight.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Romanian Deadlift (RDL) with DBs',
+            minReps: 8, maxReps: 10, unit: 'reps',
+            cue: 'Push hips straight back with soft knees until deep hamstring stretch.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Leg Extension Machine',
+            minReps: 12, maxReps: 15, unit: 'reps',
+            cue: 'Squeeze quads hard at the top for 1 full second.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Seated Leg Curl',
+            minReps: 12, maxReps: 15, unit: 'reps',
+            cue: 'Keep hips pressed back into pad; avoid arching lower back.',
+            sets: [
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false },
+              { weight: '', reps: '', rpe: '', done: false }
+            ]
+          },
+          {
+            name: "Farmer's Carries (40 yds)",
+            minReps: 40, maxReps: 40, unit: 'yards',
+            cue: 'Heavy DBs (60–80+ lbs/hand), tall posture, brisk pace—builds grip & core.',
+            sets: [
+              { weight: '', reps: '40', rpe: '', done: false },
+              { weight: '', reps: '40', rpe: '', done: false },
+              { weight: '', reps: '40', rpe: '', done: false }
+            ]
+          },
+          {
+            name: 'Hanging Knee Raises / Captain Chair',
+            minReps: 10, maxReps: 15, unit: 'reps',
+            cue: 'Curl pelvis up toward ribs rather than swinging legs.',
+            sets: [
+              { weight: '0', reps: '', rpe: '', done: false },
+              { weight: '0', reps: '', rpe: '', done: false },
+              { weight: '0', reps: '', rpe: '', done: false }
+            ]
+          }
+        ]
+      },
+      custom: {
+        id: 'custom',
+        name: 'Custom YMCA Session / Pool & Core',
+        desc: 'Build a custom lifting, mobility, or swim conditioning session',
+        exercises: [
+          {
+            name: 'Incline Treadmill Walk / Pool Laps',
+            minReps: 20, maxReps: 30, unit: 'mins',
+            cue: 'Low-impact Zone 2 conditioning to protect knees and ankles.',
+            sets: [
+              { weight: '0', reps: '25', rpe: '7', done: false }
+            ]
+          }
+        ]
+      }
+    };
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    let appState = {
+      theme: 'dark',
+      activeSplit: 'upperA',
+      draftWorkouts: JSON.parse(JSON.stringify(DEFAULT_SPLITS)),
+      workoutHistory: [],
+      weighIns: [
+        {
+          id: 'baseline-1',
+          date: todayStr,
+          weight: 300.0,
+          waist: '',
+          chest: '',
+          arms: '',
+          grip: '',
+          notes: 'Starting baseline — Friday YMCA membership kickoff!'
+        }
+      ]
+    };
+
+    // =========================================================================
+    // 2. PERSISTENCE & INITIALIZATION
+    // =========================================================================
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          appState = {
+            ...appState,
+            ...parsed,
+            draftWorkouts: { ...JSON.parse(JSON.stringify(DEFAULT_SPLITS)), ...(parsed.draftWorkouts || {}) }
+          };
+        }
+      } catch (e) {
+        console.error('Failed to load state:', e);
+      }
+      applyTheme(appState.theme);
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      } catch (e) {
+        showToast('Storage warning: Could not save locally.', 'error');
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      document.getElementById('workout-date').value = todayStr;
+      document.getElementById('wi-date').value = todayStr;
+      selectSplit(appState.activeSplit || 'upperA', false);
+      renderWorkoutHistory();
+      renderWeightTab();
+      renderAnalyticsTab();
+      calculatePlates();
+    });
+
+    window.addEventListener('resize', () => {
+      if (!document.getElementById('tab-weight').classList.contains('hidden')) {
+        renderWeightChart();
+      }
+      if (!document.getElementById('tab-analytics').classList.contains('hidden')) {
+        renderStrengthChart();
+      }
+    });
+
+    // =========================================================================
+    // 3. THEME, TABS & TOAST NOTIFICATIONS
+    // =========================================================================
+    function applyTheme(theme) {
+      const html = document.documentElement;
+      if (theme === 'dark') {
+        html.classList.add('dark');
+      } else {
+        html.classList.remove('dark');
+      }
+      appState.theme = theme;
+    }
+
+    function toggleTheme() {
+      const next = appState.theme === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      saveState();
+      renderWeightChart();
+      renderStrengthChart();
+    }
+
+    function switchMainTab(tabName) {
+      ['workout', 'weight', 'analytics'].forEach(t => {
+        const sec = document.getElementById(`tab-${t}`);
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (t === tabName) {
+          sec.classList.remove('hidden');
+          btn.classList.add('bg-white', 'dark:bg-slate-800', 'text-emerald-600', 'dark:text-emerald-400', 'shadow-sm');
+          btn.classList.remove('text-slate-600', 'dark:text-slate-400');
+        } else {
+          sec.classList.add('hidden');
+          btn.classList.remove('bg-white', 'dark:bg-slate-800', 'text-emerald-600', 'dark:text-emerald-400', 'shadow-sm');
+          btn.classList.add('text-slate-600', 'dark:text-slate-400');
+        }
+      });
+
+      if (tabName === 'weight') renderWeightTab();
+      if (tabName === 'analytics') renderAnalyticsTab();
+    }
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      const bgClass = type === 'error'
+        ? 'bg-rose-600 text-white'
+        : type === 'info'
+          ? 'bg-sky-600 text-white'
+          : 'bg-emerald-600 text-white';
+      el.className = `${bgClass} pointer-events-auto px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm font-semibold flex items-center justify-between gap-3 transform transition-all duration-300 translate-y-2 opacity-0`;
+      el.innerHTML = `<span>${escapeHtml(message)}</span>`;
+      container.appendChild(el);
+      requestAnimationFrame(() => {
+        el.classList.remove('translate-y-2', 'opacity-0');
+      });
+      setTimeout(() => {
+        el.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => el.remove(), 300);
+      }, 3200);
+    }
+
+    let confirmCallback = null;
+    function openConfirmModal(title, message, onConfirm) {
+      document.getElementById('confirm-title').textContent = title;
+      document.getElementById('confirm-message').textContent = message;
+      confirmCallback = onConfirm;
+      const modal = document.getElementById('confirm-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+    document.getElementById('confirm-cancel').onclick = () => {
+      const modal = document.getElementById('confirm-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      confirmCallback = null;
+    };
+    document.getElementById('confirm-ok').onclick = () => {
+      if (confirmCallback) confirmCallback();
+      document.getElementById('confirm-cancel').click();
+    };
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // =========================================================================
+    // 4. REST TIMER (WITH TONE.JS AUDIO ALERT)
+    // =========================================================================
+    let timerSecondsLeft = 90;
+    let timerDefaultSeconds = 90;
+    let timerInterval = null;
+    let timerRunning = false;
+
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60).toString().padStart(2, '0');
+      const s = (sec % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function updateTimerUI() {
+      const display = document.getElementById('timer-display');
+      const dot = document.getElementById('timer-dot');
+      const btn = document.getElementById('timer-toggle-btn');
+      display.textContent = formatTime(timerSecondsLeft);
+
+      if (timerRunning) {
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-ping';
+        btn.textContent = 'Pause';
+        btn.className = 'px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-slate-400';
+        btn.textContent = 'Start';
+        btn.className = 'px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition';
+      }
+    }
+
+    function playTimerChime() {
+      try {
+        if (window.Tone) {
+          Tone.start();
+          const synth = new Tone.Synth().toDestination();
+          const now = Tone.now();
+          synth.triggerAttackRelease('C5', '16n', now);
+          synth.triggerAttackRelease('E5', '16n', now + 0.15);
+          synth.triggerAttackRelease('G5', '8n', now + 0.3);
+        }
+      } catch (e) {
+        // Fallback silent if audio blocked
+      }
+    }
+
+    function toggleTimer() {
+      if (timerRunning) {
+        clearInterval(timerInterval);
+        timerRunning = false;
+      } else {
+        if (timerSecondsLeft <= 0) timerSecondsLeft = timerDefaultSeconds;
+        timerRunning = true;
+        timerInterval = setInterval(() => {
+          timerSecondsLeft--;
+          updateTimerUI();
+          if (timerSecondsLeft <= 0) {
+            clearInterval(timerInterval);
+            timerRunning = false;
+            updateTimerUI();
+            playTimerChime();
+            showToast('Rest complete! Time for your next set.', 'info');
+          }
+        }, 1000);
+      }
+      updateTimerUI();
+    }
+
+    function setTimerPreset(seconds) {
+      clearInterval(timerInterval);
+      timerRunning = false;
+      timerDefaultSeconds = seconds;
+      timerSecondsLeft = seconds;
+      updateTimerUI();
+      toggleTimer();
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      timerRunning = false;
+      timerSecondsLeft = timerDefaultSeconds;
+      updateTimerUI();
+    }
+
+    function openCustomTimerModal() {
+      const m = document.getElementById('custom-timer-modal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+    function closeCustomTimerModal() {
+      const m = document.getElementById('custom-timer-modal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+    function applyCustomTimer() {
+      const mins = parseInt(document.getElementById('custom-timer-min').value) || 0;
+      const secs = parseInt(document.getElementById('custom-timer-sec').value) || 0;
+      const total = Math.max(5, mins * 60 + secs);
+      closeCustomTimerModal();
+      setTimerPreset(total);
+    }
+
+    // =========================================================================
+    // 5. WORKOUT LOGGER LOGIC
+    // =========================================================================
+    function selectSplit(splitId, persist = true) {
+      appState.activeSplit = splitId;
+      if (!appState.draftWorkouts[splitId]) {
+        appState.draftWorkouts[splitId] = JSON.parse(JSON.stringify(DEFAULT_SPLITS[splitId]));
+      }
+      if (persist) saveState();
+
+      // Update active pill styling
+      document.querySelectorAll('.split-pill').forEach(btn => {
+        if (btn.dataset.split === splitId) {
+          btn.className = 'split-pill px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition bg-emerald-600 text-white shadow-sm';
+        } else {
+          btn.className = 'split-pill px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800';
+        }
+      });
+
+      const currentWorkout = appState.draftWorkouts[splitId];
+      document.getElementById('active-split-title').textContent = currentWorkout.name;
+      document.getElementById('active-split-desc').textContent = currentWorkout.desc;
+      renderExercises();
+    }
+
+    function getLastPerformance(exerciseName) {
+      const target = exerciseName.trim().toLowerCase();
+      for (let i = 0; i < appState.workoutHistory.length; i++) {
+        const session = appState.workoutHistory[i];
+        const found = session.exercises.find(ex => ex.name.trim().toLowerCase() === target);
+        if (found && found.sets && found.sets.length > 0) {
+          const validSets = found.sets.filter(s => s.done && (Number(s.weight) > 0 || Number(s.reps) > 0));
+          if (validSets.length > 0) {
+            const summary = validSets.map(s => `${s.weight || 0}×${s.reps || 0}`).join(', ');
+            return { date: session.date, summary, sets: validSets };
+          }
+        }
+      }
+      return null;
+    }
+
+    function calcEpley1RM(weight, reps) {
+      const w = parseFloat(weight);
+      const r = parseFloat(reps);
+      if (!w || w <= 0 || !r || r <= 0) return 0;
+      if (r === 1) return Math.round(w);
+      return Math.round(w * (1 + r / 30));
+    }
+
+    function isDoubleProgressionReady(ex) {
+      if (!ex.sets || ex.sets.length === 0) return false;
+      return ex.sets.every(s => s.done && Number(s.reps) >= Number(ex.maxReps));
+    }
+
+    function renderExercises() {
+      const container = document.getElementById('exercises-container');
+      const currentWorkout = appState.draftWorkouts[appState.activeSplit];
+      container.innerHTML = '';
+
+      let totalSets = 0;
+      let completedSets = 0;
+      let totalVolume = 0;
+      let readyCount = 0;
+
+      currentWorkout.exercises.forEach((ex, exIdx) => {
+        const ready = isDoubleProgressionReady(ex);
+        if (ready) readyCount++;
+
+        const lastPerf = getLastPerformance(ex.name);
+
+        // Calculate best estimated 1RM in current sets
+        let best1RM = 0;
+        ex.sets.forEach(s => {
+          totalSets++;
+          if (s.done) {
+            completedSets++;
+            const w = parseFloat(s.weight) || 0;
+            const r = parseFloat(s.reps) || 0;
+            totalVolume += w * r;
+            const est = calcEpley1RM(w, r);
+            if (est > best1RM) best1RM = est;
+          }
+        });
+
+        const card = document.createElement('div');
+        card.className = `bg-white dark:bg-slate-900 border ${ready ? 'border-emerald-500/70 ring-1 ring-emerald-500/30' : 'border-slate-200 dark:border-slate-800'} rounded-2xl p-4 sm:p-5 shadow-sm transition`;
+
+        let setsRowsHtml = ex.sets.map((set, setIdx) => {
+          const rowDoneBg = set.done ? 'bg-emerald-500/10 dark:bg-emerald-500/10' : 'bg-slate-50 dark:bg-slate-850/70';
+          return `
+            <div class="grid grid-cols-12 gap-2 items-center p-2 rounded-xl ${rowDoneBg} border border-slate-200/60 dark:border-slate-800/80">
+              <div class="col-span-2 sm:col-span-1 text-center font-mono text-xs font-bold text-slate-500 dark:text-slate-400">
+                #${setIdx + 1}
+              </div>
+              <div class="col-span-3 sm:col-span-3">
+                <input type="number" step="0.5" placeholder="lbs" value="${escapeHtml(set.weight)}"
+                  onchange="updateSetField(${exIdx}, ${setIdx}, 'weight', this.value)"
+                  class="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-center font-mono text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+              <div class="col-span-3 sm:col-span-3">
+                <input type="number" step="1" placeholder="${ex.minReps}-${ex.maxReps}" value="${escapeHtml(set.reps)}"
+                  onchange="updateSetField(${exIdx}, ${setIdx}, 'reps', this.value)"
+                  class="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-center font-mono text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+              <div class="col-span-2 sm:col-span-3">
+                <input type="text" placeholder="RPE / Note" value="${escapeHtml(set.rpe)}"
+                  onchange="updateSetField(${exIdx}, ${setIdx}, 'rpe', this.value)"
+                  class="w-full px-2 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+              <div class="col-span-2 sm:col-span-2 flex items-center justify-end gap-1.5">
+                <button onclick="toggleSetDone(${exIdx}, ${setIdx})" title="Mark Set Complete"
+                  class="w-9 h-9 rounded-xl flex items-center justify-center font-bold transition ${set.done ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-emerald-500/20'}">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+                </button>
+                ${ex.sets.length > 1 ? `
+                  <button onclick="removeSet(${exIdx}, ${setIdx})" title="Remove Set" class="p-1.5 text-slate-400 hover:text-rose-500 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        card.innerHTML = `
+          <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-2 mb-3">
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <h4 class="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">${escapeHtml(ex.name)}</h4>
+                <span class="px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold bg-slate-100 dark:bg-slate-850 text-slate-600 dark:text-slate-300">
+                  Target: ${ex.sets.length} × ${ex.minReps === ex.maxReps ? ex.minReps : `${ex.minReps}–${ex.maxReps}`} ${escapeHtml(ex.unit)}
+                </span>
+                ${ready ? `
+                  <span class="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 animate-pulse">
+                    ★ Double Progression Ready (+5–10 lbs next time!)
+                  </span>
+                ` : ''}
+                ${best1RM > 0 ? `
+                  <span class="px-2 py-0.5 rounded-lg text-xs font-mono font-semibold bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                    Est. 1RM: ${best1RM} lbs
+                  </span>
+                ` : ''}
+              </div>
+              ${ex.cue ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">💡 ${escapeHtml(ex.cue)}</p>` : ''}
+              ${lastPerf ? `
+                <div class="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs font-medium">
+                  <span>Last Time (${escapeHtml(lastPerf.date)}):</span>
+                  <strong class="font-mono">${escapeHtml(lastPerf.summary)}</strong>
+                </div>
+              ` : ''}
+            </div>
+
+            <div class="flex items-center gap-1.5 self-end sm:self-start">
+              <button onclick="addSet(${exIdx})" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition">
+                + Add Set
+              </button>
+              <button onclick="removeExercise(${exIdx})" title="Remove Exercise" class="p-1.5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Column Labels -->
+          <div class="grid grid-cols-12 gap-2 px-2 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <div class="col-span-2 sm:col-span-1 text-center">Set</div>
+            <div class="col-span-3 sm:col-span-3 text-center">Weight (lbs)</div>
+            <div class="col-span-3 sm:col-span-3 text-center">${escapeHtml(ex.unit)}</div>
+            <div class="col-span-2 sm:col-span-3">RPE / Note</div>
+            <div class="col-span-2 sm:col-span-2 text-right">Done</div>
+          </div>
+
+          <div class="space-y-2">
+            ${setsRowsHtml}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      document.getElementById('live-sets-count').textContent = `${completedSets} / ${totalSets}`;
+      document.getElementById('live-volume-count').textContent = `${totalVolume.toLocaleString()} lbs`;
+      document.getElementById('live-ready-count').textContent = readyCount;
+    }
+
+    function updateSetField(exIdx, setIdx, field, val) {
+      const currentWorkout = appState.draftWorkouts[appState.activeSplit];
+      currentWorkout.exercises[exIdx].sets[setIdx][field] = val;
+      saveState();
+      renderExercises();
+    }
+
+    function toggleSetDone(exIdx, setIdx) {
+      const currentWorkout = appState.draftWorkouts[appState.activeSplit];
+      const set = currentWorkout.exercises[exIdx].sets[setIdx];
+      set.done = !set.done;
+      saveState();
+      renderExercises();
+      if (set.done && !timerRunning) {
+        // Auto-start rest timer when checking off a set if not already running
+        setTimerPreset(timerDefaultSeconds);
+      }
+    }
+
+    function addSet(exIdx) {
+      const currentWorkout = appState.draftWorkouts[appState.activeSplit];
+      const sets = currentWorkout.exercises[exIdx].sets;
+      const last = sets[sets.length - 1] || { weight: '', reps: '', rpe: '' };
+      sets.push({ weight: last.weight, reps: '', rpe: '', done: false });
+      saveState();
+      renderExercises();
+    }
+
+    function removeSet(exIdx, setIdx) {
+      const currentWorkout = appState.draftWorkouts[appState.activeSplit];
+      currentWorkout.exercises[exIdx].sets.splice(setIdx, 1);
+      saveState();
+      renderExercises();
+    }
+
+    function removeExercise(exIdx) {
+      openConfirmModal('Remove Exercise', 'Remove this exercise from the current session?', () => {
+        const currentWorkout = appState.draftWorkouts[appState.activeSplit];
+        currentWorkout.exercises.splice(exIdx, 1);
+        saveState();
+        renderExercises();
+      });
+    }
+
+    function openAddExerciseModal() {
+      const m = document.getElementById('add-exercise-modal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+      document.getElementById('new-ex-name').focus();
+    }
+    function closeAddExerciseModal() {
+      const m = document.getElementById('add-exercise-modal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+    function confirmAddExercise(e) {
+      e.preventDefault();
+      const name = document.getElementById('new-ex-name').value.trim();
+      const numSets = Math.max(1, parseInt(document.getElementById('new-ex-sets').value) || 3);
+      const minReps = Math.max(1, parseInt(document.getElementById('new-ex-min').value) || 8);
+      const maxReps = Math.max(minReps, parseInt(document.getElementById('new-ex-max').value) || 12);
+      const cue = document.getElementById('new-ex-cue').value.trim();
+
+      const sets = Array.from({ length: numSets }, () => ({ weight: '', reps: '', rpe: '', done: false }));
+      appState.draftWorkouts[appState.activeSplit].exercises.push({
+        name, minReps, maxReps, unit: 'reps', cue, sets
+      });
+      saveState();
+      renderExercises();
+      closeAddExerciseModal();
+      e.target.reset();
+      showToast(`Added "${name}" to session.`);
+    }
+
+    function resetActiveTemplate() {
+      openConfirmModal('Reset Workout Template', 'Restore default exercises and clear checkmarks for this split?', () => {
+        appState.draftWorkouts[appState.activeSplit] = JSON.parse(JSON.stringify(DEFAULT_SPLITS[appState.activeSplit]));
+        saveState();
+        renderExercises();
+        showToast('Template reset to defaults.');
+      });
+    }
+
+    function saveCompletedWorkout() {
+      const currentWorkout = appState.draftWorkouts[appState.activeSplit];
+      const date = document.getElementById('workout-date').value || todayStr;
+      const swim = document.getElementById('workout-swim').value;
+      const notes = document.getElementById('workout-notes').value.trim();
+
+      let completedSets = 0;
+      let totalVolume = 0;
+      const loggedExercises = currentWorkout.exercises.map(ex => {
+        const doneSets = ex.sets.filter(s => s.done || Number(s.reps) > 0);
+        doneSets.forEach(s => {
+          completedSets++;
+          totalVolume += (parseFloat(s.weight) || 0) * (parseFloat(s.reps) || 0);
+        });
+        return {
+          name: ex.name,
+          minReps: ex.minReps,
+          maxReps: ex.maxReps,
+          unit: ex.unit,
+          sets: JSON.parse(JSON.stringify(doneSets))
+        };
+      }).filter(ex => ex.sets.length > 0);
+
+      if (completedSets === 0) {
+        showToast('Check off at least one completed set before saving.', 'error');
+        return;
+      }
+
+      const entry = {
+        id: 'wo-' + Date.now(),
+        splitId: appState.activeSplit,
+        splitName: currentWorkout.name,
+        date,
+        swim,
+        notes,
+        totalSets: completedSets,
+        totalVolume,
+        exercises: loggedExercises
+      };
+
+      appState.workoutHistory.unshift(entry);
+
+      // Prepare draft for next session: keep weights/reps as reference, uncheck done boxes
+      currentWorkout.exercises.forEach(ex => {
+        ex.sets.forEach(s => { s.done = false; });
+      });
+      document.getElementById('workout-notes').value = '';
+
+      saveState();
+      renderExercises();
+      renderWorkoutHistory();
+      renderAnalyticsTab();
+      showToast(`Saved ${currentWorkout.name} (${completedSets} sets, ${totalVolume.toLocaleString()} lbs)!`);
+    }
+
+    function renderWorkoutHistory() {
+      const list = document.getElementById('workout-history-list');
+      const query = (document.getElementById('history-search').value || '').toLowerCase().trim();
+
+      const filtered = appState.workoutHistory.filter(w => {
+        if (!query) return true;
+        const inTitle = w.splitName.toLowerCase().includes(query) || w.date.includes(query) || (w.notes || '').toLowerCase().includes(query);
+        const inEx = w.exercises.some(e => e.name.toLowerCase().includes(query));
+        return inTitle || inEx;
+      });
+
+      if (filtered.length === 0) {
+        list.innerHTML = `
+          <div class="p-6 text-center rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-dashed border-slate-200 dark:border-slate-800 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            No completed workouts logged yet. Check off your sets above and click <strong>Save Workout to Log</strong>!
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = filtered.map(w => {
+        const exSummary = w.exercises.map(ex => {
+          const topSet = ex.sets.reduce((best, s) => {
+            const vol = (parseFloat(s.weight) || 0) * (parseFloat(s.reps) || 0);
+            return vol >= best.vol ? { vol, text: `${s.weight || 0}×${s.reps || 0}` } : best;
+          }, { vol: -1, text: '' });
+          return `<span class="inline-block px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-850 text-xs font-medium">${escapeHtml(ex.name)}: <strong class="font-mono">${escapeHtml(topSet.text)}</strong></span>`;
+        }).join(' ');
+
+        return `
+          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-850/70 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="space-y-1.5">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-mono text-xs font-bold px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">${escapeHtml(w.date)}</span>
+                <h4 class="font-extrabold text-sm sm:text-base">${escapeHtml(w.splitName)}</h4>
+                ${w.swim && w.swim !== 'None' ? `<span class="text-xs px-2 py-0.5 rounded-lg bg-sky-500/15 text-sky-500 font-semibold">🏊 ${escapeHtml(w.swim)}</span>` : ''}
+              </div>
+              <div class="text-xs text-slate-500 dark:text-slate-400">
+                <strong>${w.totalSets}</strong> sets • <strong>${w.totalVolume.toLocaleString()} lbs</strong> total volume
+                ${w.notes ? ` • <em>"${escapeHtml(w.notes)}"</em>` : ''}
+              </div>
+              <div class="flex flex-wrap gap-1.5 pt-1">${exSummary}</div>
+            </div>
+            <button onclick="deleteWorkoutHistory('${w.id}')" class="self-end sm:self-center px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-500 hover:bg-rose-500/10 transition shrink-0">
+              Delete
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function deleteWorkoutHistory(id) {
+      openConfirmModal('Delete Logged Workout', 'Remove this session from your workout history?', () => {
+        appState.workoutHistory = appState.workoutHistory.filter(w => w.id !== id);
+        saveState();
+        renderWorkoutHistory();
+        renderExercises();
+        renderAnalyticsTab();
+        showToast('Workout removed from history.');
+      });
+    }
+
+    // =========================================================================
+    // 6. WEEKLY WEIGH-INS & BODY RECOMP TRACKER
+    // =========================================================================
+    function addWeighIn(e) {
+      e.preventDefault();
+      const date = document.getElementById('wi-date').value;
+      const weight = parseFloat(document.getElementById('wi-weight').value);
+      const waist = document.getElementById('wi-waist').value.trim();
+      const chest = document.getElementById('wi-chest').value.trim();
+      const arms = document.getElementById('wi-arms').value.trim();
+      const grip = document.getElementById('wi-grip').value.trim();
+      const notes = document.getElementById('wi-notes').value.trim();
+
+      if (!date || isNaN(weight)) return;
+
+      appState.weighIns.push({
+        id: 'wi-' + Date.now(),
+        date,
+        weight: Math.round(weight * 10) / 10,
+        waist,
+        chest,
+        arms,
+        grip,
+        notes
+      });
+
+      // Sort chronologically
+      appState.weighIns.sort((a, b) => a.date.localeCompare(b.date));
+      saveState();
+      renderWeightTab();
+      e.target.reset();
+      document.getElementById('wi-date').value = todayStr;
+      showToast(`Weigh-in recorded: ${weight.toFixed(1)} lbs`);
+    }
+
+    function deleteWeighIn(id) {
+      if (appState.weighIns.length <= 1) {
+        showToast('Keep at least one baseline weigh-in entry.', 'error');
+        return;
+      }
+      openConfirmModal('Delete Weigh-In', 'Remove this weigh-in entry?', () => {
+        appState.weighIns = appState.weighIns.filter(w => w.id !== id);
+        saveState();
+        renderWeightTab();
+        showToast('Weigh-in deleted.');
+      });
+    }
+
+    function renderWeightTab() {
+      const sorted = [...appState.weighIns].sort((a, b) => a.date.localeCompare(b.date));
+      const startWeight = 300.0;
+      const goalWeight = 220.0;
+      const current = sorted[sorted.length - 1];
+      const currentWeight = current ? current.weight : startWeight;
+      const totalLost = Math.max(0, startWeight - currentWeight);
+      const pctGoal = Math.min(100, Math.max(0, (totalLost / (startWeight - goalWeight)) * 100));
+
+      // Calculate weekly avg rate
+      let weeklyRateText = '— lbs/wk';
+      let numericRate = 1.75; // Default midpoint of 1.5 - 2.0 lbs/wk
+      if (sorted.length >= 2) {
+        const firstDate = new Date(sorted[0].date);
+        const lastDate = new Date(current.date);
+        const diffDays = Math.max(1, (lastDate - firstDate) / (1000 * 60 * 60 * 24));
+        const weeks = Math.max(1, diffDays / 7);
+        const diffWeight = sorted[0].weight - currentWeight;
+        const rate = diffWeight / weeks;
+        weeklyRateText = `${rate >= 0 ? '-' : '+'}${Math.abs(rate).toFixed(2)} lbs/wk`;
+        if (rate > 0.25) numericRate = rate;
+      }
+
+      // Next 20-lb checkpoint
+      const checkpoints = [280, 260, 240, 220];
+      const nextCp = checkpoints.find(cp => currentWeight > cp) || 220;
+      const toNextCp = Math.max(0, currentWeight - nextCp);
+
+      document.getElementById('kpi-current-weight').textContent = `${currentWeight.toFixed(1)} lbs`;
+      document.getElementById('kpi-start-compare').textContent = `Start: ${startWeight.toFixed(1)} lbs`;
+      document.getElementById('kpi-total-lost').textContent = `${totalLost.toFixed(1)} lbs`;
+      document.getElementById('kpi-percent-goal').textContent = `${pctGoal.toFixed(1)}% of 80 lb goal`;
+      document.getElementById('kpi-weekly-rate').textContent = weeklyRateText;
+      document.getElementById('kpi-next-milestone').textContent = `${nextCp.toFixed(1)} lbs`;
+      document.getElementById('kpi-to-milestone').textContent = toNextCp === 0 ? 'Goal Reached!' : `${toNextCp.toFixed(1)} lbs to go`;
+
+      // Progress bar & ETA
+      document.getElementById('weight-progress-fill').style.width = `${pctGoal}%`;
+      const remainingTo220 = Math.max(0, currentWeight - goalWeight);
+      const weeksLeft = Math.ceil(remainingTo220 / numericRate);
+      document.getElementById('projected-eta-badge').textContent = remainingTo220 === 0
+        ? 'Goal Weight Reached!'
+        : `Est. ETA at ${numericRate.toFixed(1)} lbs/wk: ~${weeksLeft} weeks`;
+
+      // Highlight achieved checkpoints
+      [280, 260, 240, 220].forEach(cp => {
+        const box = document.getElementById(`ms-${cp}`);
+        if (currentWeight <= cp) {
+          box.className = 'p-3 rounded-xl border border-emerald-500 bg-emerald-500/15 text-center shadow-sm';
+        } else {
+          box.className = `${cp === 220 ? 'col-span-2 sm:col-span-1 ' : ''}p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 text-center`;
+        }
+      });
+
+      // Render Weigh-In History Table (newest first)
+      const tbody = document.getElementById('weighin-table-body');
+      const reversed = [...sorted].reverse();
+      tbody.innerHTML = reversed.map((entry, idx) => {
+        const prev = reversed[idx + 1];
+        let diffBadge = '<span class="text-slate-400">Baseline</span>';
+        if (prev) {
+          const diff = entry.weight - prev.weight;
+          const color = diff <= 0 ? 'text-emerald-500' : 'text-rose-500';
+          diffBadge = `<span class="font-mono font-bold ${color}">${diff > 0 ? '+' : ''}${diff.toFixed(1)} lbs</span>`;
+        }
+
+        const meas = [
+          entry.waist ? `W: ${entry.waist}"` : '',
+          entry.chest ? `C: ${entry.chest}"` : '',
+          entry.arms ? `A: ${entry.arms}"` : '',
+          entry.grip ? `G: ${entry.grip}` : ''
+        ].filter(Boolean).join(' • ') || '—';
+
+        return `
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-850/50">
+            <td class="py-2.5 px-3 font-mono text-xs">${escapeHtml(entry.date)}</td>
+            <td class="py-2.5 px-3 font-mono font-extrabold">${entry.weight.toFixed(1)} lbs</td>
+            <td class="py-2.5 px-3">${diffBadge}</td>
+            <td class="py-2.5 px-3 text-xs text-slate-600 dark:text-slate-300">${escapeHtml(meas)}</td>
+            <td class="py-2.5 px-3 text-xs text-slate-500 dark:text-slate-400">${escapeHtml(entry.notes || '—')}</td>
+            <td class="py-2.5 px-3 text-right">
+              <button onclick="deleteWeighIn('${entry.id}')" class="text-xs font-semibold text-rose-500 hover:underline">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      renderWeightChart();
+    }
+
+    function renderWeightChart() {
+      const svg = document.getElementById('weight-svg-chart');
+      if (!svg) return;
+      const wrapper = document.getElementById('weight-chart-wrapper');
+      const width = wrapper.clientWidth || 600;
+      const height = Math.max(250, wrapper.clientHeight || 260);
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+      const sorted = [...appState.weighIns].sort((a, b) => a.date.localeCompare(b.date));
+      const pad = { top: 20, right: 24, bottom: 32, left: 46 };
+      const plotW = width - pad.left - pad.right;
+      const plotH = height - pad.top - pad.bottom;
+
+      const isDark = appState.theme === 'dark';
+      const gridColor = isDark ? '#1e293b' : '#e2e8f0';
+      const textColor = isDark ? '#94a3b8' : '#64748b';
+
+      // Build points including projected 4-week future point at 1.75 lbs/wk
+      const lastEntry = sorted[sorted.length - 1];
+      const projectedWeight = Math.max(220, Math.round((lastEntry.weight - 7.0) * 10) / 10);
+
+      const allWeights = sorted.map(d => d.weight).concat([projectedWeight, 220]);
+      const minW = Math.floor((Math.min(...allWeights) - 5) / 5) * 5;
+      const maxW = Math.ceil((Math.max(...allWeights) + 5) / 5) * 5;
+
+      const totalSteps = sorted.length + 1; // +1 for projected point
+      const getX = (idx) => pad.left + (totalSteps <= 1 ? plotW / 2 : (idx / (totalSteps - 1)) * plotW);
+      const getY = (w) => pad.top + ((maxW - w) / (maxW - minW)) * plotH;
+
+      let svgContent = '';
+
+      // Horizontal grid lines & Y labels
+      const steps = 5;
+      for (let i = 0; i <= steps; i++) {
+        const val = minW + ((maxW - minW) / steps) * i;
+        const y = getY(val);
+        svgContent += `<line x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}" stroke="${gridColor}" stroke-width="1" />`;
+        svgContent += `<text x="${pad.left - 8}" y="${y + 4}" text-anchor="end" fill="${textColor}" font-size="11" font-family="JetBrains Mono">${Math.round(val)}</text>`;
+      }
+
+      // 20-lb Milestone reference lines if within range
+      [280, 260, 240, 220].forEach(cp => {
+        if (cp >= minW && cp <= maxW) {
+          const y = getY(cp);
+          svgContent += `<line x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}" stroke="#10b981" stroke-opacity="0.25" stroke-dasharray="4 4" />`;
+          svgContent += `<text x="${width - pad.right}" y="${y - 4}" text-anchor="end" fill="#10b981" font-size="10" font-weight="bold">${cp} lb</text>`;
+        }
+      });
+
+      // Actual Weight Line
+      if (sorted.length > 1) {
+        const actualPath = sorted.map((d, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(d.weight)}`).join(' ');
+        svgContent += `<path d="${actualPath}" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />`;
+      }
+
+      // 4-Week Moving Average Line
+      if (sorted.length >= 2) {
+        const maPath = sorted.map((d, i) => {
+          const slice = sorted.slice(Math.max(0, i - 3), i + 1);
+          const avg = slice.reduce((acc, item) => acc + item.weight, 0) / slice.length;
+          return `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(avg)}`;
+        }).join(' ');
+        svgContent += `<path d="${maPath}" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />`;
+      }
+
+      // Projected trajectory dashed line from last weigh-in
+      const lastX = getX(sorted.length - 1);
+      const lastY = getY(lastEntry.weight);
+      const projX = getX(sorted.length);
+      const projY = getY(projectedWeight);
+      svgContent += `<line x1="${lastX}" y1="${lastY}" x2="${projX}" y2="${projY}" stroke="#fbbf24" stroke-width="2.5" stroke-dasharray="5 5" />`;
+      svgContent += `<circle cx="${projX}" cy="${projY}" r="4.5" fill="#fbbf24" />`;
+      svgContent += `<text x="${projX}" y="${projY - 8}" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="bold">Est. +4wk: ${projectedWeight}</text>`;
+
+      // Data points & X labels
+      sorted.forEach((d, i) => {
+        const cx = getX(i);
+        const cy = getY(d.weight);
+        svgContent += `<circle cx="${cx}" cy="${cy}" r="5" fill="#10b981" stroke="${isDark ? '#0f172a' : '#ffffff'}" stroke-width="2" />`;
+        svgContent += `<text x="${cx}" y="${cy - 10}" text-anchor="middle" fill="${isDark ? '#f8fafc' : '#0f172a'}" font-size="11" font-weight="bold" font-family="JetBrains Mono">${d.weight.toFixed(1)}</text>`;
+
+        // Show date label cleanly without overlapping
+        if (sorted.length <= 8 || i % Math.ceil(sorted.length / 6) === 0 || i === sorted.length - 1) {
+          svgContent += `<text x="${cx}" y="${height - 8}" text-anchor="middle" fill="${textColor}" font-size="10">${d.date.slice(5)}</text>`;
+        }
+      });
+
+      svg.innerHTML = svgContent;
+    }
+
+    // =========================================================================
+    // 7. STRENGTH ANALYTICS, PR BOARD & PLATE CALCULATOR
+    // =========================================================================
+    function renderAnalyticsTab() {
+      renderPRBoard();
+      renderStrengthChart();
+    }
+
+    function renderPRBoard() {
+      const grid = document.getElementById('pr-cards-grid');
+      const prMap = {};
+
+      appState.workoutHistory.forEach(session => {
+        session.exercises.forEach(ex => {
+          const key = ex.name.trim();
+          if (!prMap[key]) {
+            prMap[key] = { name: key, maxWeight: 0, maxWeightReps: 0, bestVolume: 0, bestVolumeStr: '', best1RM: 0, date: session.date };
+          }
+          ex.sets.forEach(s => {
+            const w = parseFloat(s.weight) || 0;
+            const r = parseFloat(s.reps) || 0;
+            const vol = w * r;
+            const est1RM = calcEpley1RM(w, r);
+
+            if (w > prMap[key].maxWeight) {
+              prMap[key].maxWeight = w;
+              prMap[key].maxWeightReps = r;
+              prMap[key].date = session.date;
+            }
+            if (vol > prMap[key].bestVolume) {
+              prMap[key].bestVolume = vol;
+              prMap[key].bestVolumeStr = `${w}×${r}`;
+            }
+            if (est1RM > prMap[key].best1RM) {
+              prMap[key].best1RM = est1RM;
+            }
+          });
+        });
+      });
+
+      const entries = Object.values(prMap).filter(p => p.maxWeight > 0);
+      if (entries.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full p-6 text-center rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-dashed border-slate-200 dark:border-slate-800 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            Complete and save your first workout in the <strong>Workout Log</strong> tab to populate your Personal Records board!
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = entries.map(pr => `
+        <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <h4 class="font-extrabold text-sm text-slate-900 dark:text-white truncate">${escapeHtml(pr.name)}</h4>
+              <span class="text-[11px] font-mono text-slate-400 shrink-0">${escapeHtml(pr.date)}</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 pt-1">
+              <div class="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800">
+                <span class="block text-[10px] uppercase text-slate-400 font-bold">Heaviest</span>
+                <span class="font-mono font-extrabold text-sm text-emerald-500">${pr.maxWeight} lb</span>
+              </div>
+              <div class="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800">
+                <span class="block text-[10px] uppercase text-slate-400 font-bold">Best Set</span>
+                <span class="font-mono font-extrabold text-sm">${escapeHtml(pr.bestVolumeStr)}</span>
+              </div>
+              <div class="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800">
+                <span class="block text-[10px] uppercase text-slate-400 font-bold">Est. 1RM</span>
+                <span class="font-mono font-extrabold text-sm text-sky-500">${pr.best1RM} lb</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderStrengthChart() {
+      const svg = document.getElementById('strength-svg-chart');
+      if (!svg) return;
+      const liftName = document.getElementById('analytics-lift-select').value;
+      const width = svg.parentElement.clientWidth || 600;
+      const height = 250;
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+      // Gather chronological data points for selected lift
+      const points = [];
+      [...appState.workoutHistory].reverse().forEach(session => {
+        const ex = session.exercises.find(e => e.name.toLowerCase().includes(liftName.split(' ')[0].toLowerCase()) && e.name.toLowerCase().includes(liftName.split(' ').slice(-1)[0].toLowerCase()));
+        if (ex && ex.sets.length > 0) {
+          let top1RM = 0;
+          let topWeight = 0;
+          ex.sets.forEach(s => {
+            const w = parseFloat(s.weight) || 0;
+            const r = parseFloat(s.reps) || 0;
+            const est = calcEpley1RM(w, r);
+            if (est > top1RM) top1RM = est;
+            if (w > topWeight) topWeight = w;
+          });
+          if (top1RM > 0) {
+            points.push({ date: session.date, est1RM: top1RM, topWeight });
+          }
+        }
+      });
+
+      const isDark = appState.theme === 'dark';
+      const textColor = isDark ? '#94a3b8' : '#64748b';
+      const gridColor = isDark ? '#1e293b' : '#e2e8f0';
+
+      if (points.length === 0) {
+        svg.innerHTML = `
+          <text x="${width / 2}" y="${height / 2}" text-anchor="middle" fill="${textColor}" font-size="13" font-family="Inter">
+            No logged sets for "${escapeHtml(liftName)}" yet. Log a session to plot your progression!
+          </text>
+        `;
+        return;
+      }
+
+      const pad = { top: 24, right: 24, bottom: 30, left: 48 };
+      const plotW = width - pad.left - pad.right;
+      const plotH = height - pad.top - pad.bottom;
+
+      const vals = points.map(p => p.est1RM);
+      const minV = Math.floor((Math.min(...vals) - 15) / 10) * 10;
+      const maxV = Math.ceil((Math.max(...vals) + 15) / 10) * 10;
+
+      const getX = (i) => pad.left + (points.length === 1 ? plotW / 2 : (i / (points.length - 1)) * plotW);
+      const getY = (v) => pad.top + ((maxV - v) / Math.max(10, maxV - minV)) * plotH;
+
+      let out = '';
+      for (let i = 0; i <= 4; i++) {
+        const val = minV + ((maxV - minV) / 4) * i;
+        const y = getY(val);
+        out += `<line x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}" stroke="${gridColor}" />`;
+        out += `<text x="${pad.left - 8}" y="${y + 4}" text-anchor="end" fill="${textColor}" font-size="11" font-family="JetBrains Mono">${Math.round(val)}</text>`;
+      }
+
+      if (points.length > 1) {
+        const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(p.est1RM)}`).join(' ');
+        out += `<path d="${d}" fill="none" stroke="#38bdf8" stroke-width="3" stroke-linecap="round" />`;
+      }
+
+      points.forEach((p, i) => {
+        const x = getX(i);
+        const y = getY(p.est1RM);
+        out += `<circle cx="${x}" cy="${y}" r="5" fill="#38bdf8" stroke="${isDark ? '#0f172a' : '#fff'}" stroke-width="2" />`;
+        out += `<text x="${x}" y="${y - 10}" text-anchor="middle" fill="${isDark ? '#f8fafc' : '#0f172a'}" font-size="11" font-weight="bold" font-family="JetBrains Mono">${p.est1RM} lb</text>`;
+        out += `<text x="${x}" y="${height - 8}" text-anchor="middle" fill="${textColor}" font-size="10">${p.date.slice(5)}</text>`;
+      });
+
+      svg.innerHTML = out;
+    }
+
+    // Plate Calculator
+    function setPlateTarget(val) {
+      document.getElementById('plate-target').value = val;
+      calculatePlates();
+    }
+
+    function calculatePlates() {
+      const target = parseFloat(document.getElementById('plate-target').value) || 0;
+      const bar = parseFloat(document.getElementById('plate-bar-weight').value) || 0;
+      const visual = document.getElementById('plate-visual-bar');
+      const text = document.getElementById('plate-text-breakdown');
+
+      if (target <= bar) {
+        visual.innerHTML = `<span class="text-xs text-slate-400">Empty bar / sled (${bar} lbs)</span>`;
+        text.textContent = '0 lbs per side';
+        return;
+      }
+
+      let perSide = (target - bar) / 2;
+      const available = [
+        { w: 45, h: 'h-16', color: 'bg-blue-600 text-white' },
+        { w: 35, h: 'h-14', color: 'bg-amber-500 text-slate-950' },
+        { w: 25, h: 'h-12', color: 'bg-emerald-600 text-white' },
+        { w: 10, h: 'h-10', color: 'bg-slate-600 text-white' },
+        { w: 5, h: 'h-8', color: 'bg-rose-600 text-white' },
+        { w: 2.5, h: 'h-7', color: 'bg-purple-600 text-white' }
+      ];
+
+      const platesUsed = [];
+      available.forEach(p => {
+        while (perSide >= p.w - 0.001) {
+          platesUsed.push(p);
+          perSide -= p.w;
+        }
+      });
+
+      // Sleeve base
+      let html = `<div class="w-4 h-3 bg-slate-400 rounded-l"></div>`;
+      platesUsed.forEach(p => {
+        html += `<div class="px-1.5 ${p.h} ${p.color} rounded flex items-center justify-center font-mono text-[10px] font-extrabold shadow-sm shrink-0">${p.w}</div>`;
+      });
+      html += `<div class="w-6 h-3 bg-slate-400 rounded-r"></div>`;
+      visual.innerHTML = html;
+
+      // Group counts for readable summary
+      const counts = {};
+      platesUsed.forEach(p => { counts[p.w] = (counts[p.w] || 0) + 1; });
+      const summary = Object.entries(counts).map(([w, c]) => `${c}×${w}lb`).join(' + ');
+      text.textContent = `Each Side (${((target - bar) / 2).toFixed(1)} lbs): ${summary}`;
+    }
+
+    // =========================================================================
+    // 8. JSON EXPORT & IMPORT BACKUP
+    // =========================================================================
+    function exportData() {
+      const dataStr = JSON.stringify(appState, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ymca-recomp-backup-${todayStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast('Backup JSON downloaded!');
+    }
+
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (!imported.weighIns || !imported.draftWorkouts) {
+            throw new Error('Invalid backup structure');
+          }
+          appState = imported;
+          saveState();
+          applyTheme(appState.theme || 'dark');
+          selectSplit(appState.activeSplit || 'upperA', false);
+          renderWorkoutHistory();
+          renderWeightTab();
+          renderAnalyticsTab();
+          showToast('Backup restored successfully!');
+        } catch (err) {
+          showToast('Invalid JSON backup file.', 'error');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+  </script>
+</body>
+</html>
